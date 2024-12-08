@@ -10,3 +10,5 @@ Implementar la Navegación con Swiper: Asegúrate de que la navegación entre la
 Maquetación con SASS: Utiliza SASS para mejorar la estructura del CSS del proyecto. Asegúrate de que la maquetación sea consistente y responsiva, adaptándose a diferentes tamaños de pantalla.
 Añadir Drag and Drop a la Lista de Favoritos: Implementa la funcionalidad de arrastrar y soltar para la lista de películas favoritas utilizando Interact.js, haciendo que la gestión de las listas sea más accesible e intuitiva para los usuarios.
 Añadir Animaciones Extra: Añade al menos una animación adicional para mejorar la experiencia del usuario. Puedes optar por animaciones en los íconos de las películas, en la navegación o en cualquier otro elemento que consideres relevante.
+
+https://github.com/mariarocio19/Mi_Netflix_Chulo_Con_Movimiento.git
