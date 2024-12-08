@@ -1,0 +1,396 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Mis Películas</title>
+    <link href="https://fonts.googleapis.com/css?family=Roboto&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+
+
+    <link rel="stylesheet" href="styles.css">
+
+
+    <script type="text/javascript">
+        // MODELO DE DATOS
+
+        let mis_peliculas_iniciales = [
+            {titulo: "Superlópez",   director: "Javier Ruiz Caldera", "miniatura": "./files/superlopez.png"},
+            {titulo: "Jurassic Park", director: "Steven Spielberg", "miniatura": "./files/jurassicpark.png"},
+            {titulo: "Interstellar",  director: "Christopher Nolan", "miniatura": "./files/interstellar.png"},
+            {titulo: "Mean Girls",  director: "Mark Waters", "miniatura": "./files/meangirls.png"},
+            {titulo: "Mammma Mia",  director: "Phyllida Lloyd", "miniatura": "./files/mammamia.png"},
+            {titulo: "El Gran Showman",  director: "Michael Gracey", "miniatura": "./files/showman.png"}
+        ];
+
+        let mis_peliculas = [...mis_peliculas_iniciales];
+
+        const api_key = '0477fac14a532814ae6cce635aac9a13'; // Reemplaza con tu clave API de TMDb
+
+        // VISTAS
+
+        const indexView = (peliculas) => {
+            let i = 0;
+            let view = "";
+
+            while (i < peliculas.length) {
+                view += `
+                    <div class="movie">
+                        <div class="movie-img">
+                            <img class="show" data-my-id="${i}" src="${peliculas[i].miniatura}" onerror="this.src='./files/placeholder.png'; console.error('Error al cargar la imagen: ${peliculas[i].miniatura}')"/>
+                        </div>
+                        <div class="title">
+                            ${peliculas[i].titulo || "<em>Sin título</em>"}
+                        </div>
+                        <div class="actions">
+                            <button class="show" data-my-id="${i}">Ver</button>
+                            <button class="edit" data-my-id="${i}">Editar</button>
+                            <button class="delete" data-my-id="${i}">Borrar</button>
+                        </div>
+                    </div>\n`;
+                i++;
+            }
+
+            view += `<div class="actions">
+                    <button class="new">Añadir</button>
+                    <button class="reset">Reset</button>
+                    <button class="search">Buscar Película en TMDb</button>
+                    <button class="view-my-keywords">Ver Mis Palabras Clave</button>
+                </div>`;
+            return view;
+        }
+
+        const searchView = () => {
+            return `
+                <h2>Buscar Película en TMDb</h2>
+                <div class="field">
+                    <label for="query">Título de la Película</label><br>
+                    <input type="text" id="query" placeholder="Ingresa el título de la película">
+                </div>
+                <div class="actions">
+                    <button class="search-movie">Buscar</button>
+                    <button class="index">Volver</button>
+                </div>
+            `;
+        }
+
+        const resultsView = (resultados) => {
+            let view = "<h2>Resultados de la Búsqueda</h2>";
+
+            if (resultados.length === 0) {
+                view += `<p>No se encontraron resultados.</p>`;
+            } else {
+                resultados.forEach((pelicula, i) => {
+                    view += `
+                        <div class="movie">
+                            <div class="movie-img">
+                                <img class="add-from-api" data-my-id="${i}" data-movie-id="${pelicula.id}" src="https://image.tmdb.org/t/p/w200${pelicula.poster_path}" alt="${pelicula.title}" onerror="this.src='./files/placeholder.png'"/>
+                            </div>
+                            <div class="title">
+                                ${pelicula.title || "<em>Sin título</em>"}
+                            </div>
+                            <div class="actions">
+                                <button class="add-from-api" data-my-id="${i}">Añadir</button>
+                                <button class="view-keywords" data-my-id="${i}">Ver Palabras Clave</button>
+                            </div>
+                        </div>\n`;
+                });
+            }
+
+            view += `<div class="actions">
+                    <button class="index">Volver</button>
+                </div>`;
+            return view;
+        }
+
+        const showView = (pelicula) => {
+            return `<h2>${pelicula.titulo}</h2>
+                <p>Director: ${pelicula.director}</p>
+                <div class="movie-img">
+                    <img src="${pelicula.miniatura}" alt="Carátula de ${pelicula.titulo}" onerror="this.src='./files/placeholder.png'"/>
+                </div>
+                <div class="actions">
+                    <button class="index">Volver</button>
+                </div>`;
+        }
+
+        const keywordsView = (keywords) => {
+            let view = "<h2>Palabras Clave de la Película</h2>";
+
+            if (keywords.length === 0) {
+                view += `<p>No se encontraron palabras clave.</p>`;
+            } else {
+                keywords.forEach((keyword) => {
+                    view += `
+                        <div class="keyword">
+                            <span>${cleanKeyword(keyword.name)}</span>
+                            <button class="add-keyword" data-keyword="${keyword.name}">Agregar a mi lista</button>
+                        </div>\n`;
+                });
+            }
+
+            view += `<div class="actions">
+                    <button class="index">Volver</button>
+                </div>`;
+            return view;
+        }
+
+        const myKeywordsView = () => {
+            let storedKeywords = JSON.parse(localStorage.getItem('myKeywords')) || [];
+            let view = "<h2>Mis Palabras Clave</h2>";
+
+            if (storedKeywords.length === 0) {
+                view += `<p>No has agregado palabras clave a tu lista.</p>`;
+            } else {
+                storedKeywords.forEach((keyword) => {
+                    view += `
+                        <div class="keyword">
+                            <span>${keyword}</span>
+                            <button class="remove-keyword" data-keyword="${keyword}">Eliminar</button>
+                        </div>\n`;
+                });
+            }
+
+            view += `<div class="actions">
+                    <button class="index">Volver</button>
+                </div>`;
+            return view;
+        }
+
+        const cleanKeyword = (keyword) => {
+            return keyword
+                .replace(/[^a-zñáéíóú0-9 ]+/igm, "")  // Eliminar caracteres especiales
+                .trim()                                // Eliminar espacios en blanco al principio y al final
+                .toLowerCase();                        // Convertir a minúsculas
+        };
+
+        // CONTROLADORES
+
+        const initContr = () => {
+            indexContr();
+        }
+
+        const indexContr = () => {
+            document.getElementById('main').innerHTML = indexView(mis_peliculas);
+        }
+
+        const searchContr = () => {
+            document.getElementById('main').innerHTML = searchView();
+        }
+
+        const searchMovieContr = () => {
+            const query = document.getElementById('query').value;
+            if (query) {
+                const url = `https://api.themoviedb.org/3/search/movie?api_key=${api_key}&query=${encodeURIComponent(query)}`;
+                
+                fetch(url)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`Error en la solicitud: ${response.statusText}`);
+                        }
+                        return response.json();
+                    })
+                    .then(response => {
+                        document.getElementById('main').innerHTML = resultsView(response.results);
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        alert("Hubo un problema al buscar la película. Por favor, intenta nuevamente.");
+                    });
+            } else {
+                alert("Por favor, ingresa un título para buscar.");
+            }
+        }
+
+        const viewKeywordsContr = (i) => {
+            const resultados = document.querySelectorAll('.movie');
+            const movieId = resultados[i].querySelector('img').dataset.movieId;
+
+            const url = `https://api.themoviedb.org/3/movie/${movieId}/keywords?api_key=${api_key}`;
+
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error en la solicitud: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(response => {
+                    console.log(response.keywords);
+                    document.getElementById('main').innerHTML = keywordsView(response.keywords);
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Hubo un problema al obtener las palabras clave. Por favor, intenta nuevamente.");
+                });
+        }
+
+        const addFromAPIContr = (i) => {
+            const resultados = document.querySelectorAll('.movie');
+            const peliculaElemento = resultados[i];
+            const titulo = peliculaElemento.querySelector('.title').innerText;
+            const miniatura = peliculaElemento.querySelector('img').src;
+            const director = "Desconocido";
+    
+            if (titulo && miniatura) {
+                const peliculaExistente = mis_peliculas.find(pelicula => pelicula.titulo === titulo);
+                if (!peliculaExistente) {
+                    mis_peliculas.push({ titulo, director, miniatura });
+                    alert(`La película "${titulo}" ha sido añadida a tu lista.`);
+            
+                    // Aplicar animación a la película añadida
+                    anime({
+                        targets: peliculaElemento,
+                        scale: [0.8, 1],
+                        duration: 500,
+                        easing: 'easeOutElastic(1, .8)'
+                    });
+            
+                    indexContr();
+                } else {
+                    alert("La película ya existe en la lista.");
+                }
+            } else {
+                alert("No se pudo agregar la película.");
+            }
+        }
+
+        const showContr = (i) => {
+            const pelicula = mis_peliculas[i];
+            document.getElementById('main').innerHTML = showView(pelicula);
+            anime({
+                targets: '#main',
+                opacity: [0, 1],
+                duration: 800,
+                easing: 'easeInOutQuad'
+            });
+        }
+
+        const editContr = (i) => {
+            const nuevoTitulo = prompt("Editar título de la película:", mis_peliculas[i].titulo);
+            if (nuevoTitulo) {
+                mis_peliculas[i].titulo = nuevoTitulo;
+                indexContr();
+            }
+        }
+
+        const deleteContr = (i) => {
+            if (confirm("¿Estás seguro de que deseas borrar esta película?")) {
+                mis_peliculas.splice(i, 1);
+                indexContr();
+            }
+        }
+
+        const newContr = () => {
+            document.getElementById('main').innerHTML = `
+                <h2>Añadir Nueva Película</h2>
+                <div class="field">
+                    <label for="titulo">Título</label><br>
+                    <input type="text" id="titulo" placeholder="Título de la película">
+                </div>
+                <div class="field">
+                    <label for="director">Director</label><br>
+                    <input type="text" id="director" placeholder="Director de la película">
+                </div>
+                <div class="field">
+                    <label for="miniatura">URL de la Miniatura</label><br>
+                    <input type="text" id="miniatura" placeholder="URL de la carátula">
+                </div>
+                <div class="actions">
+                    <button class="create">Crear</button>
+                    <button class="index">Volver</button>
+                </div>
+            `;
+        }
+
+        const createContr = () => {
+            const titulo = document.getElementById('titulo').value;
+            const director = document.getElementById('director').value;
+            const miniatura = document.getElementById('miniatura').value;
+
+            if (titulo && director && miniatura) {
+                mis_peliculas.push({ titulo, director, miniatura });
+                alert(`La película "${titulo}" ha sido añadida a tu lista.`);
+                indexContr();
+            } else {
+                alert("Por favor, completa todos los campos antes de crear la película.");
+            }
+        }
+
+        const addKeywordToList = (keyword) => {
+            let storedKeywords = JSON.parse(localStorage.getItem('myKeywords')) || [];
+            if (!storedKeywords.includes(keyword)) {
+                storedKeywords.push(keyword);
+                localStorage.setItem('myKeywords', JSON.stringify(storedKeywords));
+                alert(`La palabra clave "${keyword}" ha sido añadida a tu lista.`);
+            } else {
+                alert("La palabra clave ya existe en tu lista.");
+            }
+        }
+
+        const removeKeywordFromList = (keyword) => {
+            let storedKeywords = JSON.parse(localStorage.getItem('myKeywords')) || [];
+            storedKeywords = storedKeywords.filter(k => k !== keyword);
+            localStorage.setItem('myKeywords', JSON.stringify(storedKeywords));
+            document.getElementById('main').innerHTML = myKeywordsView();
+        }
+
+        // ROUTER de eventos
+        const matchEvent = (ev, sel) => ev.target.matches(sel)
+        const myId = (ev) => Number(ev.target.dataset.myId)
+
+        document.addEventListener('click', ev => {
+            if      (matchEvent(ev, '.index'))           indexContr  ();
+            else if (matchEvent(ev, '.search'))          searchContr ();
+            else if (matchEvent(ev, '.search-movie'))    searchMovieContr();
+            else if (matchEvent(ev, '.add-from-api'))    addFromAPIContr(myId(ev));
+            else if (matchEvent(ev, '.view-keywords'))   viewKeywordsContr(myId(ev));
+            else if (matchEvent(ev, '.add-keyword'))     addKeywordToList(ev.target.dataset.keyword);
+            else if (matchEvent(ev, '.remove-keyword'))  removeKeywordFromList(ev.target.dataset.keyword);
+            else if (matchEvent(ev, '.show'))            showContr(myId(ev));
+            else if (matchEvent(ev, '.edit'))            editContr(myId(ev));
+            else if (matchEvent(ev, '.delete'))          deleteContr(myId(ev));
+            else if (matchEvent(ev, '.new'))             newContr();
+            else if (matchEvent(ev, '.create'))          createContr();
+            else if (matchEvent(ev, '.reset'))           initContr();
+            else if (matchEvent(ev, '.view-my-keywords')) document.getElementById('main').innerHTML = myKeywordsView();
+        })
+
+        // Inicialización        
+        document.addEventListener('DOMContentLoaded', () => {
+            initContr();
+    
+            interact('.movie').draggable({
+                inertia: true,
+                modifiers: [
+                    interact.modifiers.restrictRect({
+                        restriction: 'parent',
+                        endOnly: true
+                    })
+                ],
+                autoScroll: true,
+                listeners: {
+                    move(event) {
+                        const target = event.target;
+                        const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+                        const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+                
+                        target.style.transform = `translate(${x}px, ${y}px)`;
+                        target.setAttribute('data-x', x);
+                        target.setAttribute('data-y', y);
+                    }
+                }
+            });
+        });
+    </script>
+</head>
+
+<body>
+    <h1>Mis Películas Favoritas</h1>
+    <div id="main">
+        <!-- Aquí se mostrarán todas las películas y las acciones disponibles -->
+    </div>
+</body>
+</html>
